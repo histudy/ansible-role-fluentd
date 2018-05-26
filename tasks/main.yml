@@ -1,0 +1,36 @@
+---
+- name: install dependency packages
+  apt:
+    name: apt-transport-https
+- name: add gpg key
+  apt_key:
+    url: https://packages.treasuredata.com/GPG-KEY-td-agent
+- name: add repository
+  apt_repository:
+    repo: "deb http://packages.treasuredata.com/3/{{ ansible_distribution|lower }}/{{ ansible_distribution_release }}/ {{ ansible_distribution_release }} contrib"
+    filename: treasure-data
+- name: install fluentd
+  apt:
+    name: td-agent
+  notify: restart fluentd
+- name: add admin group
+  user:
+    name: td-agent
+    groups: "{{ common_admin_group|default('adm') }}"
+    append: yes
+- name: install fluentd plugins
+  gem:
+    name: "{{ item }}"
+    user_install: no
+    executable: /usr/sbin/td-agent-gem
+  with_items: "{{ fluentd_plugins }}"
+- name: create fluentd setting files
+  template:
+    src: td-agent.conf.j2
+    dest: /etc/td-agent/td-agent.conf
+  notify: restart fluentd
+- name: fluentd is active and enable on system startup
+  systemd:
+    name: td-agent
+    state: started
+    enabled: yes
